@@ -79,7 +79,7 @@ class hit_data:
         # splitting and renaming required columns for referral purchases
         referral_data_1=referral_data.withColumn("Search_Engine_Domain",url_search_engine_udf(referral_data.referrer)) \
             .withColumn("Search_Keyword",url_search_keyword_udf(referral_data.referrer)) \
-            .withColumn("SearchIPaddress",FileContent.ip)
+            .withColumn("SearchIPaddress",referral_data.ip)
 
         # selecting required columns
         referral_data_2=referral_data_1.select("SearchIPaddress","Search_Engine_Domain","Search_Keyword")

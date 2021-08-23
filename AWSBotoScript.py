@@ -108,6 +108,6 @@ def Boto3_script():
             raise
 
 # user provided Input
-input_Filename="data_v2.sql"
+input_Filename="data.sql"
 # calling function
 Boto3_script()
