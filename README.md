@@ -5,7 +5,7 @@
 ## Steps to Execute scripts:
 1.	Load the necessary input data files into appropriate local directory.
 2.	Execute the AWSBotoScript.py by providing data file name in “input_Filename” parameter, this execution print cluster name (e.g. AWS Cluster Name: - j-1R5QZTBK8HUZV) in IDE. Detail process steps performed by boto3 are mentioned below.
-	2.1 Input Data File will be moved to mentioned S3 bucket
+	-  2.1 Input Data File will be moved to mentioned S3 bucket
 	2.2 An EMR Spark application will be created to execute script in spark application.
 	2.3 Once the application is created Pyspark executable will be moved to respective folder
 	2.4 Spark job submit will be submitted by passing input file.
