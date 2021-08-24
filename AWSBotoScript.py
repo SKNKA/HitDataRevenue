@@ -21,7 +21,6 @@ def Boto3_script():
     s3 = boto3.resource('s3')
     s3.meta.client.upload_file(input_Filename, S3_BUCKET, S3_DATA)
 
-
     # client session details for EMR cluster creation and other steps needed for submitting Spark job
     client = boto3.client('emr', region_name='us-east-2')
     response = client.run_job_flow(

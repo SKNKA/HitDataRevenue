@@ -8,6 +8,7 @@ from pyspark.sql.types import StructField, StructType, StringType, IntegerType, 
 class hit_data:
 
     def hit_data_process_func(self):
+
         #udf function to get the search engine
         def url_search_engine_fun(url):
             if not url:
@@ -21,8 +22,10 @@ class hit_data:
                 dic=parse_qs(parsed.query)
                 if parsed.netloc =='search.yahoo.com':
                     return dic['p'][0].upper()
-                else :
+                elif parsed.netloc in ('www.google.com','www.bing.com'):
                     return dic['q'][0].upper()
+                else:
+                    return ''
             else:
                 return ''
 
@@ -55,7 +58,7 @@ class hit_data:
         filepath = sys.argv[1]
 
         # read file content into DF
-        FileContent=spark.read \
+        FileContent = spark.read \
             .option("header","true") \
             .option("sep", "\t") \
             .schema(schema)\
@@ -64,22 +67,21 @@ class hit_data:
         # Filter confirmed purchases into DF
         confirmed_purchase=FileContent.filter((FileContent.event_list.isin('1')) & (FileContent.pagename=='Order Complete'))
 
+        # splitting and renaming required columns for confirmed purchases
+        confirmed_purchase_1=confirmed_purchase.withColumn('product',split(confirmed_purchase.product_list, ';').getItem(1)) \
+                                               .withColumn('price',split(confirmed_purchase.product_list, ';').getItem(3).cast(IntegerType())) \
+                                               .withColumn('SoldIPaddress',confirmed_purchase.ip)
+
+        # selecting required columns
+        confirmed_purchase_2=confirmed_purchase_1.select("SoldIPaddress",upper(col("product")).alias("sold_product"),"price")
+
         # Filter referral data into DF
         referral_data=FileContent.filter(url_search_engine_udf(FileContent.page_url)!=url_search_engine_udf(FileContent.referrer))
 
-        # splitting and renaming required columns for confirmed purchases
-        confirmed_purchase_1=confirmed_purchase.withColumn("merchent_site",url_search_engine_udf(confirmed_purchase.referrer)) \
-            .withColumn('sold_product',split(confirmed_purchase.product_list, ';').getItem(1)) \
-            .withColumn('price',split(confirmed_purchase.product_list, ';').getItem(3).cast(IntegerType())) \
-            .withColumn('SoldIPaddress',confirmed_purchase.ip)
-
-        # selecting required columns
-        confirmed_purchase_2=confirmed_purchase_1.select("SoldIPaddress","pagename","merchent_site","sold_product","price")
-
         # splitting and renaming required columns for referral purchases
         referral_data_1=referral_data.withColumn("Search_Engine_Domain",url_search_engine_udf(referral_data.referrer)) \
-            .withColumn("Search_Keyword",url_search_keyword_udf(referral_data.referrer)) \
-            .withColumn("SearchIPaddress",referral_data.ip)
+                                     .withColumn("Search_Keyword",url_search_keyword_udf(referral_data.referrer)) \
+                                     .withColumn("SearchIPaddress",referral_data.ip)
 
         # selecting required columns
         referral_data_2=referral_data_1.select("SearchIPaddress","Search_Engine_Domain","Search_Keyword")
@@ -87,8 +89,10 @@ class hit_data:
         # join referral and confirmed purchases to ge the combined results
         output_details=referral_data_2.join(confirmed_purchase_2,referral_data_2.SearchIPaddress ==  confirmed_purchase_2.SoldIPaddress,"inner")
 
+        output_details_1=output_details.filter(output_details.sold_product.contains(output_details.Search_Keyword))
+
         # aggregate the results based on search engine and key word
-        output_details_2=output_details.groupBy("Search_Engine_Domain","Search_Keyword").agg(F.sum("price").alias("Revenue")).orderBy(col("Revenue"),ascending=False)
+        output_details_2=output_details_1.groupBy("Search_Engine_Domain","Search_Keyword").agg(F.sum("price").alias("Revenue")).orderBy(col("Revenue"),ascending=False)
 
         # creating folder details for Aws S3
         today_date = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d')
